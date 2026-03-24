@@ -75,3 +75,24 @@ pub async fn sqlquery(sql: String) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[tokio::test]
+    async fn test_ingest_creates_parquet() {
+        let csv_path = "test_movies.csv";
+        let parquet_path = "movies.parquet";
+        let csv_content = "title,year,runtime_minutes\ntest,2020,100\n";
+        fs::write(csv_path, csv_content).unwrap();
+
+        ingest(csv_path.into()).await.unwrap();
+
+        let metadata = fs::metadata(parquet_path).unwrap();
+        assert!(metadata.len() > 0, "Parquet file should not be empty");
+
+        let _ = fs::remove_file(csv_path);
+        let _ = fs::remove_file(parquet_path);
+    }
+}
