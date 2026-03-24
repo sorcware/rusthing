@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use csv::Reader;
 use arrow::array::{StringBuilder, UInt16Builder, ArrayRef};
@@ -11,7 +11,20 @@ use datafusion::prelude::*;
 
 #[derive(Parser, Debug)]
 struct Cli {
-    csv: PathBuf,
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand, Debug)]
+enum Command {
+    Ingest{
+        #[arg(short, long)]
+        csv: PathBuf,
+    },
+    Query{
+        #[arg(short, long)]
+        sql: String,
+    },
 }
 
 #[derive(Debug)]
@@ -24,7 +37,15 @@ struct Movie {
  #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
-    let mut rdr = Reader::from_path(args.csv)?;
+    println!("Running command: {:?}", args.command);
+    match args.command {
+        Command::Ingest { csv } => ingest(csv).await?,
+        Command::Query { sql } => sqlquery(sql).await?,
+    }
+    Ok(())
+}
+async fn ingest(csv_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let mut rdr = Reader::from_path(csv_path)?;
     let mut movies: Vec<Movie> = Vec::new();
     for result in rdr.records() {
         let record = result?;
@@ -70,10 +91,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = ArrowWriter::try_new(file, batch.schema(), Some(props))?;
     writer.write(&batch)?;
     writer.close()?;
+    Ok(())
+}
 
+async fn sqlquery(sql: String) -> Result<(), Box<dyn std::error::Error>> {
     let ctx = SessionContext::new();
     ctx.register_parquet("movies", "movies.parquet", ParquetReadOptions::default()).await?;
-    let df = ctx.sql("SELECT * FROM movies").await?;
+    let df = ctx.sql(&sql).await?;
     let results: Vec<RecordBatch> = df.collect().await?;
     let pretty_results = arrow::util::pretty::pretty_format_batches(&results)?.to_string();
     println!("{}", pretty_results);
