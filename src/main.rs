@@ -8,7 +8,6 @@ use std::sync::Arc;
 use parquet::arrow::ArrowWriter;
 use parquet::file::properties::WriterProperties;
 use datafusion::prelude::*;
-use tokio;
 
 #[derive(Parser, Debug)]
 struct Cli {
