@@ -1,36 +1,39 @@
+
 # rusthing
 
-A fast, terminal-native tool for querying and transforming local data files with SQL.
+A fast, terminal-native tool for querying and transforming local CSV data files with SQL.
 
-Load CSVs and JSON files, run SQL against them, reshape and join datasets, and export results — all from the command line, without spinning up a database.
+Ingest CSVs, convert to Parquet, run SQL queries via DataFusion, and export results — all from the command line, without spinning up a database.
 
 ---
 
+
 ## Features
 
-- **SQL queries** over CSV and JSON files via DataFusion
-- **Multi-file joins** — treat multiple files as tables in the same query
+- **Ingest** — Convert CSV files to Parquet for fast analytics
+- **SQL queries** over Parquet files via DataFusion
 - **Transformations** — cast types, reshape, filter, aggregate
-- **Export** — write results to CSV or Parquet
+- **Export** — write results to Parquet
 - **Schema inference** — automatically detects column types on load
 
 ---
 
+
 ## Usage
 
 ```bash
-# Query a single file
-rusthing query --file data.csv "SELECT region, SUM(revenue) FROM data GROUP BY region"
+# Ingest a CSV file (creates movies.parquet)
+rusthing ingest --csv movies.csv
 
-# Join two files
-rusthing query --file orders.csv --file customers.csv \
-  "SELECT c.name, SUM(o.total) FROM orders o JOIN customers c ON o.customer_id = c.id GROUP BY c.name"
+# Query the Parquet file with SQL
+rusthing query --sql "SELECT * FROM movies WHERE year > 2000"
 
-# Export results
-rusthing query --file data.csv --out results.parquet "SELECT * FROM data WHERE year = 2024"
+# Example: aggregate
+rusthing query --sql "SELECT year, COUNT(*) FROM movies GROUP BY year ORDER BY year"
 ```
 
 ---
+
 
 ## Installation
 
@@ -63,7 +66,7 @@ cargo build --release
 ## Roadmap
 
 - [ ] CSV and JSON ingestion
-- [ ] Single-file SQL queries
+- [x] Single-file SQL queries
 - [ ] Multi-file joins
 - [ ] Type casting and transforms
 - [ ] Parquet export
