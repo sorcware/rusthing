@@ -7,6 +7,8 @@ use arrow::datatypes::{DataType, Field, Schema};
 use std::sync::Arc;
 use parquet::arrow::ArrowWriter;
 use parquet::file::properties::WriterProperties;
+use datafusion::prelude::*;
+use tokio;
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -20,7 +22,8 @@ struct Movie {
     runtime_minutes: u16,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+ #[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
     let mut rdr = Reader::from_path(args.csv)?;
     let mut movies: Vec<Movie> = Vec::new();
@@ -68,6 +71,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = ArrowWriter::try_new(file, batch.schema(), Some(props))?;
     writer.write(&batch)?;
     writer.close()?;
+
+    let ctx = SessionContext::new();
+    ctx.register_parquet("movies", "movies.parquet", ParquetReadOptions::default()).await?;
+    let df = ctx.sql("SELECT * FROM movies").await?;
+    let results: Vec<RecordBatch> = df.collect().await?;
+    let pretty_results = arrow::util::pretty::pretty_format_batches(&results)?.to_string();
+    println!("{}", pretty_results);
     Ok(())
 }
 
