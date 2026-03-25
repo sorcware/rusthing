@@ -15,8 +15,8 @@ struct Movie {
     runtime_minutes: u16,
 }
 
-pub async fn ingest(csv_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    let mut rdr = Reader::from_path(csv_path)?;
+pub async fn ingest(input_csv_path: PathBuf, output_parquet_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let mut rdr = Reader::from_path(input_csv_path)?;
     let mut movies: Vec<Movie> = Vec::new();
     for result in rdr.records() {
         let record = result?;
@@ -58,16 +58,16 @@ pub async fn ingest(csv_path: PathBuf) -> Result<(), Box<dyn std::error::Error>>
     )?;
 
     let props = WriterProperties::builder().build();
-    let file = std::fs::File::create("movies.parquet")?;
+    let file = std::fs::File::create(output_parquet_path)?;
     let mut writer = ArrowWriter::try_new(file, batch.schema(), Some(props))?;
     writer.write(&batch)?;
     writer.close()?;
     Ok(())
 }
 
-pub async fn sqlquery(sql: String) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn sqlquery(sql: String, parquet_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     let ctx = SessionContext::new();
-    ctx.register_parquet("movies", "movies.parquet", ParquetReadOptions::default()).await?;
+    ctx.register_parquet("movies", parquet_path.to_str().unwrap(), ParquetReadOptions::default()).await?;
     let df = ctx.sql(&sql).await?;
     let results: Vec<RecordBatch> = df.collect().await?;
     let pretty_results = arrow::util::pretty::pretty_format_batches(&results)?.to_string();
@@ -83,11 +83,11 @@ mod tests {
     #[tokio::test]
     async fn test_ingest_creates_parquet() {
         let csv_path = "test_movies.csv";
-        let parquet_path = "movies.parquet";
+        let parquet_path = "test_movies.parquet";
         let csv_content = "title,year,runtime_minutes\ntest,2020,100\n";
         fs::write(csv_path, csv_content).unwrap();
 
-        ingest(csv_path.into()).await.unwrap();
+        ingest(csv_path.into(), parquet_path.into()).await.unwrap();
 
         let metadata = fs::metadata(parquet_path).unwrap();
         assert!(metadata.len() > 0, "Parquet file should not be empty");
