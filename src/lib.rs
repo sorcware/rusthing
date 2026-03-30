@@ -65,14 +65,13 @@ pub async fn ingest(input_csv_path: PathBuf, output_parquet_path: PathBuf) -> Re
     Ok(())
 }
 
-pub async fn sqlquery(sql: String, parquet_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn sqlquery(sql: String, parquet_path: PathBuf) -> Result<String, Box<dyn std::error::Error>> {
     let ctx = SessionContext::new();
     ctx.register_parquet("movies", parquet_path.to_str().unwrap(), ParquetReadOptions::default()).await?;
     let df = ctx.sql(&sql).await?;
     let results: Vec<RecordBatch> = df.collect().await?;
     let pretty_results = arrow::util::pretty::pretty_format_batches(&results)?.to_string();
-    println!("{}", pretty_results);
-    Ok(())
+    return Ok(pretty_results);
 }
 
 #[cfg(test)]
